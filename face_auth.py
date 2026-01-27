@@ -1,77 +1,33 @@
 # -*- coding: utf-8 -*-
 """
-نظام التعرّف على الوجه للروبوت الطبي
-يعتمد على مكتبات face_recognition و opencv-python
-مصمم ليكون خفيفاً على Raspberry Pi
+نظام التعرّف على الوجه للروبوت الطبي (النسخة الحديثة - InsightFace)
+يعتمد على FaceEngine و FaceDB
 """
 
-import cv2
-import face_recognition
-import os
-import numpy as np
 import time
+import numpy as np
+
+# Lazy imports handled inside functions to avoid circular deps or startup lag
+shared_camera = None
+
 try:
     from robot.camera.camera import camera as shared_camera
 except ImportError:
     shared_camera = None
     print("⚠️ فشل استيراد الكاميرا المشتركة")
 
-# مسار مجلد الوجوه المعروفة
-FACES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faces')
-
-# متغيرات لتخزين بصمات الوجوه
-known_face_encodings = []
-known_face_names = []
-model_loaded = False
-
-def load_known_faces():
-    """تحميل الوجوه من المجلد وترميزها في الذاكرة"""
-    global known_face_encodings, known_face_names, model_loaded
-    
-    # التأكد من وجود المجلد
-    if not os.path.exists(FACES_DIR):
-        os.makedirs(FACES_DIR)
-        print("⚠️ مجلد الوجوه فارغ. تم إنشاء المجلد في:", FACES_DIR)
-        return
-
-    print("🔄 جاري تحميل بصمات الوجوه...")
-    encodings = []
-    names = []
-
-    for filename in os.listdir(FACES_DIR):
-        if filename.endswith(('.jpg', '.jpeg', '.png')):
-            try:
-                path = os.path.join(FACES_DIR, filename)
-                image = face_recognition.load_image_file(path)
-                encoding = face_recognition.face_encodings(image)[0]
-                
-                encodings.append(encoding)
-                names.append(os.path.splitext(filename)[0]) # اسم الملف بدون الامتداد
-            except Exception as e:
-                print(f"❌ تعذر معالجة الصورة {filename}: {e}")
-
-    known_face_encodings = encodings
-    known_face_names = names
-    model_loaded = True
-    print(f"✅ تم تحميل {len(names)} وجه معروف.")
-
 MAX_VERIFY_SECONDS = 10
-MAX_ATTEMPTS = 5
+MAX_ATTEMPTS = 15  # Increased attempts since InsightFace is faster
 
 def check_face_auth(frame=None):
     """
-    التحقق من هوية الشخص أمام الكاميرا.
+    التحقق من هوية الشخص أمام الكاميرا using InsightFace.
     Args:
-        frame: إطار الصورة (اختياري). إذا لم يتم توفيره، سيتم التقاط واحد من الكاميرا المشتركة.
+        frame: إطار الصورة (اختياري).
     Returns:
         (bool, str): (هل تم التعرف؟, الرسالة)
     """
-    if not model_loaded:
-        load_known_faces()
-
-    if not known_face_encodings:
-        return True, "وضع التطوير: تم السماح لعدم وجود وجوه مسجلة"
-
+    # 1. Get Camera Frame
     if frame is None:
         if shared_camera is None:
             return False, "خطأ: الكاميرا غير متصلة بالنظام"
@@ -80,38 +36,48 @@ def check_face_auth(frame=None):
     if frame is None:
         return False, "تعذر الحصول على صورة من الكاميرا"
 
-    found_match = False
-    message = "لم يتم التعرف على الوجه"
-
+    # 2. Get Engine & DB (Lazy Load)
     try:
-        # تحسين الأداء: تصغير الصورة إلى الربع
-        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        from robot.camera.stream import get_face_engine
+        from robot.camera.face_db import match_face, load_faces
         
-        # تحويل الألوان من BGR إلى RGB
-        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-
-        # الكشف عن الوجوه
-        face_locations = face_recognition.face_locations(rgb_small_frame)
+        engine = get_face_engine()
+        # Note: In a real optimized scenario, we shouldn't load_faces every time if it's slow,
+        # but get_face_engine handles some caching. 
+        # For auth, we specifically want the latest DB, but let's trust the stream module's cache/refresh logic for now 
+        # or just load it here if needed. 
+        # Better: stream.py maintains 'faces_db' global.
+        from robot.camera.stream import faces_db 
         
-        if len(face_locations) > 0:
-            face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
-
-            for face_encoding in face_encodings:
-                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
-                
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_face_names[first_match_index]
-                    found_match = True
-                    message = f"تم التعرف على: {name}"
-                    print(f"✅ {message}")
-                    break
+        if not engine:
+            return False, "محرك الوجوه غير جاهز"
             
-    except Exception as e:
-        print(f"❌ خطأ أثناء التعرف على الوجه: {e}")
-        message = "حدث خطأ في نظام الكاميرا"
+        if not faces_db:
+             # Try allowing if no faces registered? (Dev mode)
+             # return True, "وضغ التطوير: لا توجد وجوه مسجلة"
+             return False, "لا توجد وجوه مسجلة في النظام"
 
-    return found_match, message
+    except ImportError:
+         return False, "خطأ في استيراد مكتبات التعرف على الوجه"
+
+    # 3. Detect & Match
+    try:
+        faces = engine.detect(frame)
+        
+        if len(faces) == 0:
+            return False, "لم يتم العثور على وجه"
+            
+        # Check all faces
+        for face in faces:
+            name, score = match_face(face.embedding, faces_db, threshold=0.5)
+            if name != "Unknown":
+                return True, f"تم التعرف على: {name}"
+                
+        return False, "وجه غير معروف"
+
+    except Exception as e:
+        print(f"❌ خطأ تقني في check_face_auth: {e}")
+        return False, "خطأ في المعالجة"
 
 def verify_with_timeout():
     """التحقق مع مهلة زمنية ومحاولات متعددة"""
@@ -120,22 +86,16 @@ def verify_with_timeout():
     
     print(f"🕵️ بدء التحقق من الوجه (Timeout={MAX_VERIFY_SECONDS}s)...")
 
-    while (time.time() - start) < MAX_VERIFY_SECONDS and attempts < MAX_ATTEMPTS:
-        if shared_camera:
-            frame = shared_camera.get_frame()
-            if frame is None:
-                time.sleep(0.1)
-                continue
-
-            attempts += 1
-            is_verified, msg = check_face_auth(frame)
-            
-            if is_verified:
-                return {"verified": True, "reason": "FACE_MATCH", "message": msg}
-            
-            # Wait a bit between attempts
-            time.sleep(0.5)
-        else:
-            return {"verified": False, "reason": "CAMERA_ERROR", "message": "الكاميرا غير متصلة"}
+    while (time.time() - start) < MAX_VERIFY_SECONDS:
+        attempts += 1
+        
+        is_verified, msg = check_face_auth()
+        
+        if is_verified:
+            print(f"✅ {msg}")
+            return {"verified": True, "reason": "FACE_MATCH", "message": msg}
+        
+        # Wait a bit between attempts (InsightFace is fast, but let's not spam)
+        time.sleep(0.3)
 
     return {"verified": False, "reason": "TIMEOUT_OR_NO_MATCH", "message": "انتهت المهلة: لم يتم التعرف على الوجه"}
