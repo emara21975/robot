@@ -66,7 +66,7 @@ def gen_frames():
             print(f"Overlay Error: {e}")
 
         # Encoding frame to JPEG
-        ret, buffer = cv2.imencode('.jpg', frame)
+        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ret:
             continue
             

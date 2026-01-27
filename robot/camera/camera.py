@@ -2,10 +2,13 @@
 import threading
 import time
 import numpy as np
-
-# Try importing Picamera2
+# Try importing Picamera2 and libcamera controls
 try:
     from picamera2 import Picamera2
+    try:
+        from libcamera import controls
+    except ImportError:
+        controls = None # Fallback if controls cannot be imported directly
     _PICAMERA_AVAILABLE = True
 except ImportError:
     _PICAMERA_AVAILABLE = False
@@ -22,10 +25,33 @@ class Camera:
             try:
                 print(f"Initializing Picamera2 with resolution {width}x{height}...")
                 self.picam2 = Picamera2()
+                
+                # Create configuration with FrameRate control
                 config = self.picam2.create_preview_configuration(
-                    main={"format": "BGR888", "size": (width, height)}
+                    main={"format": "BGR888", "size": (width, height)},
+                    controls={"FrameRate": 30}
                 )
                 self.picam2.configure(config)
+                
+                # Apply ISP Controls if available
+                if controls:
+                    print("⚙️ Applying advanced ISP controls...")
+                    try:
+                        self.picam2.set_controls({
+                            controls.AeEnable: True,
+                            controls.AwbEnable: True,
+                            controls.AeMeteringMode: controls.AeMeteringModeEnum.CentreWeighted,
+                            controls.NoiseReductionMode: controls.NoiseReductionModeEnum.HighQuality,
+                            controls.Sharpness: 1.2,
+                            controls.Contrast: 1.1,
+                            controls.Brightness: 0.0,
+                            controls.Saturation: 1.1
+                        })
+                    except Exception as e_ctrl:
+                        print(f"⚠️ Failed to set some ISP controls: {e_ctrl}")
+                else:
+                     print("⚠️ libcamera.controls not available, skipping advanced tuning.")
+
                 self.picam2.start()
                 self.running = True
                 
@@ -33,7 +59,7 @@ class Camera:
                 self.thread = threading.Thread(target=self._update, daemon=True)
                 self.thread.start()
                 
-                print("✅ Camera started with Picamera2")
+                print("✅ Camera started with Picamera2 (HD + ISP Tuned)")
             except Exception as e:
                 print(f"❌ Failed to initialize Picamera2: {e}")
                 self.running = False
