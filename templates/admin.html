@@ -207,7 +207,7 @@
                                 style="width: 8px; height: 8px; border-radius: 50%;"></span>
                             الصندوق {{ box_id }}
                         </span>
-                        <button class="icon-btn" style="width: 32px; height: 32px;" onclick="openBox({{ box_id }})"
+                        <button class="icon-btn" style="width: 32px; height: 32px;" onclick="openBox('{{ box_id }}')"
                             title="فتح">🔓</button>
                     </div>
 
@@ -274,7 +274,7 @@
                         <div class="time-input-wrapper"><input type="number" id="box{{ box_id }}-minutes" min="0"
                                 max="59" value="00"></div>
                     </div>
-                    <button onclick="setTimer({{ box_id }})"
+                    <button onclick="setTimer('{{ box_id }}')"
                         class="btn-large {% if box_id % 2 != 0 %}btn-primary{% else %}btn-secondary{% endif %}">⏰ حفظ
                         وتفعيل</button>
                     <div id="timer-display-{{ box_id }}" class="countdown-display">التالي: <span
