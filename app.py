@@ -34,6 +34,14 @@ try:
 except ImportError:
     def log_event(*args, **kwargs): pass
 
+# استيراد نظام التعرف على الوجه (من stream فقط)
+try:
+    from robot.camera.stream import get_last_face, get_face_engine, force_reload_faces
+except ImportError:
+    def get_last_face(): return {"name": "Unknown", "score": 0.0, "time": 0}
+    def get_face_engine(): return None
+    def force_reload_faces(): pass
+
 
 # ============ إنشاء التطبيق ============
 app = Flask(__name__)
@@ -172,10 +180,6 @@ def handle_settings():
         return jsonify({"auth_enabled": auth_enabled})
 
 
-# Face Auth is handled via stream.py state
-from robot.camera.stream import get_last_face
-
-
 # ========== Face Enrollment ==========
 
 @app.route("/enroll")
@@ -234,48 +238,65 @@ def api_enroll_face():
 
 @app.route("/verify-face")
 def verify():
-    """التحقق من الوجه (باستخدام آخر نتيجة من الكاميرا مباشرة)."""
+    """✨ التحقق البسيط من الوجه - يعتمد فقط على آخر نتيجة من الكاميرا."""
     
-    # 0. Check Status First
-    val = str(get_setting("auth_enabled", "0")).strip()
-    auth_enabled = val == "1"
-    
-    if not auth_enabled:
-         return jsonify({"verified": True, "reason": "DISABLED", "message": "نظام الوجه غير مفعل"}), 200
-
+    # 1. فحص إذا كان النظام مشغول
     if robot_state.current in [RobotState.VERIFYING, RobotState.DISPENSING]:
         return jsonify({"verified": False, "reason": "BUSY", "message": "النظام مشغول حالياً"}), 200
 
+    # 2. تغيير الحالة للتحقق
     robot_state.set(RobotState.VERIFYING)
 
-    # 1. Check Global State from Stream
     try:
+        # 3. قراءة آخر وجه تم التعرف عليه من الكاميرا
         current_face = get_last_face()
         now = time.time()
         
-        # Check if face was seen recently (e.g. within last 3 seconds)
-        if (now - current_face["time"]) < 3.0:
+        # 4. التحقق إذا كان الوجه حديث (آخر 5 ثواني)
+        if (now - current_face["time"]) < 5.0:
             name = current_face["name"]
+            score = current_face.get("score", 0)
             
             if name != "Unknown":
-                # SUCCESS
-                msg = f"أهلاً بك، {name}"
-                log_event("VERIFY", robot_state.current, f"Verified: {name}", "SUCCESS")
+                # ✅ نجح التحقق
+                msg = f"أهلاً {name}"
+                log_event("VERIFY", "VERIFIED", f"Face matched: {name} (score: {score:.2f})", "SUCCESS")
                 robot_state.set(RobotState.VERIFIED)
-                return jsonify({"verified": True, "reason": "FACE_MATCH", "message": msg})
+                return jsonify({
+                    "verified": True, 
+                    "reason": "FACE_MATCH", 
+                    "message": msg,
+                    "name": name,
+                    "score": score
+                })
             else:
-                # UNKNOWN
+                # ❌ وجه مش معروف
+                log_event("VERIFY", "REJECTED", "Unknown face detected", "FAIL")
                 robot_state.set(RobotState.IDLE)
-                return jsonify({"verified": False, "reason": "UNKNOWN_FACE", "message": "وجه غير معروف، يرجى التسجيل"})
+                return jsonify({
+                    "verified": False, 
+                    "reason": "UNKNOWN_FACE", 
+                    "message": "وجه غير مسجل! اضغط 'تسجيل' أولاً"
+                })
         else:
-            # NO RECENT FACE
+            # ⚠️ مفيش وجه اتشاف حديثاً
             robot_state.set(RobotState.IDLE)
-            return jsonify({"verified": False, "reason": "NO_FACE", "message": "لم يتم العثور على وجه مؤخراً"})
+            return jsonify({
+                "verified": False, 
+                "reason": "NO_FACE", 
+                "message": "لم يتم رصد وجه. تأكد من النظر للكاميرا"
+            })
 
     except Exception as e:
+        # ❌ خطأ تقني
         robot_state.set(RobotState.IDLE)
-        print(f"Verify Error: {e}")
-        return jsonify({"verified": False, "reason": "ERROR", "message": "خطأ في النظام"}), 200
+        print(f"❌ Verify Error: {e}")
+        log_event("VERIFY", "ERROR", str(e), "ERROR")
+        return jsonify({
+            "verified": False, 
+            "reason": "ERROR", 
+            "message": "خطأ في النظام"
+        }), 500
 
 
 # ========== API التحكم في الصناديق ==========
@@ -292,20 +313,25 @@ def open_box():
         auth_enabled = val == "1"
         
         auth_msg = "تم تخطي التحقق (النظام معطل)"
+        
+        # ✅ إذا النظام مفعل → لازم التحقق من الوجه
         if auth_enabled:
-            # State Machine Check
-            if not robot_state.can_dispense():
+            # التحقق من State Machine
+            if robot_state.current != RobotState.VERIFIED:
                  log_dose(box, 'auth_failed', 'failed', "رفض الصرف: لم يتم التحقق من الوجه")
+                 log_event("DISPENSE_DENIED", robot_state.current, f"Box {box}: Auth required but not verified", "FAIL")
                  return jsonify({
                     "status": "⛔ رفض الصرف: يرجى التحقق من الوجه أولاً",
                     "error": "auth_failed",
                     "can_confirm": False
                 }), 403
-            auth_msg = "تم التحقق من الهوية بنجاح"
+            auth_msg = "تم التحقق من الهوية بنجاح ✅"
         else:
-            print(f"🔓 التحقق معطل، السماح بالصرف المباشر الصندوق {box}")
+            # ⚠️ النظام معطل → السماح بالصرف المباشر
+            print(f"🔓 التحقق معطل، السماح بالصرف المباشر للصندوق {box}")
+            auth_msg = "تم تخطي التحقق (نظام الوجه معطل)"
 
-        # تسجيل وقت الدخول
+        # تسجيل الرسالة
         print(f"🔓 {auth_msg}")
 
         # 1. التحقق من المخزون

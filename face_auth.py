@@ -1,101 +1,39 @@
 # -*- coding: utf-8 -*-
 """
-نظام التعرّف على الوجه للروبوت الطبي (النسخة الحديثة - InsightFace)
-يعتمد على FaceEngine و FaceDB
+⚠️ هذا الملف تم إلغاؤه ولم يعد مستخدماً في النظام!
+
+✅ النظام البسيط الجديد:
+-----------------------
+التعرف على الوجه يتم بالكامل من خلال:
+- robot/camera/stream.py (البث المباشر)
+- robot/camera/face_engine.py (محرك InsightFace)
+- robot/camera/face_db.py (قاعدة بيانات الوجوه)
+
+📋 آلية العمل الجديدة:
+------------------------
+1. الكاميرا تعمل باستمرار في stream.py
+2. كل frame يتم تحليله تلقائياً
+3. آخر وجه معروف يُحفظ في متغير عام (get_last_face)
+4. عند الضغط على "تحقق من الوجه" في patient.html
+5. النظام يقرأ آخر وجه معروف (خلال آخر 5 ثواني)
+6. إذا كان معروف → التحقق ناجح ✅
+7. إذا Unknown → رفض ❌
+
+🔧 للحذف الكامل:
+------------------
+يمكنك حذف هذا الملف بالكامل - لم يعد له أي استخدام.
+
+النظام الآن أبسط وأسرع وأكثر موثوقية!
 """
 
-import time
-import numpy as np
+# تم إلغاء جميع الوظائف في هذا الملف
+# استخدم robot/camera/stream.py بدلاً منه
 
-# Lazy imports handled inside functions to avoid circular deps or startup lag
-shared_camera = None
+def check_face_auth(*args, **kwargs):
+    """⚠️ تم إلغاؤها - استخدم get_last_face() من stream.py"""
+    raise NotImplementedError("❌ تم إلغاء هذه الوظيفة! استخدم النظام الجديد في stream.py")
 
-try:
-    from robot.camera.camera import camera as shared_camera
-except ImportError:
-    shared_camera = None
-    print("⚠️ فشل استيراد الكاميرا المشتركة")
+def verify_with_timeout(*args, **kwargs):
+    """⚠️ تم إلغاؤها - استخدم /verify-face API endpoint"""
+    raise NotImplementedError("❌ تم إلغاء هذه الوظيفة! استخدم endpoint: /verify-face")
 
-MAX_VERIFY_SECONDS = 10
-MAX_ATTEMPTS = 15  # Increased attempts since InsightFace is faster
-
-def check_face_auth(frame=None):
-    """
-    التحقق من هوية الشخص أمام الكاميرا using InsightFace.
-    Args:
-        frame: إطار الصورة (اختياري).
-    Returns:
-        (bool, str): (هل تم التعرف؟, الرسالة)
-    """
-    # 1. Get Camera Frame
-    if frame is None:
-        if shared_camera is None:
-            return False, "خطأ: الكاميرا غير متصلة بالنظام"
-        frame = shared_camera.get_frame()
-
-    if frame is None:
-        return False, "تعذر الحصول على صورة من الكاميرا"
-
-    # 2. Get Engine & DB (Lazy Load)
-    try:
-        from robot.camera.stream import get_face_engine
-        from robot.camera.face_db import match_face, load_faces
-        
-        engine = get_face_engine()
-        # Note: In a real optimized scenario, we shouldn't load_faces every time if it's slow,
-        # but get_face_engine handles some caching. 
-        # For auth, we specifically want the latest DB, but let's trust the stream module's cache/refresh logic for now 
-        # or just load it here if needed. 
-        # Better: stream.py maintains 'faces_db' global.
-        from robot.camera.stream import faces_db 
-        
-        if not engine:
-            return False, "محرك الوجوه غير جاهز"
-            
-        if not faces_db:
-             # Try allowing if no faces registered? (Dev mode)
-             # return True, "وضغ التطوير: لا توجد وجوه مسجلة"
-             return False, "لا توجد وجوه مسجلة في النظام"
-
-    except ImportError:
-         return False, "خطأ في استيراد مكتبات التعرف على الوجه"
-
-    # 3. Detect & Match
-    try:
-        faces = engine.detect(frame)
-        
-        if len(faces) == 0:
-            return False, "لم يتم العثور على وجه"
-            
-        # Check all faces
-        for face in faces:
-            name, score = match_face(face.embedding, faces_db, threshold=0.5)
-            if name != "Unknown":
-                return True, f"تم التعرف على: {name}"
-                
-        return False, "وجه غير معروف"
-
-    except Exception as e:
-        print(f"❌ خطأ تقني في check_face_auth: {e}")
-        return False, "خطأ في المعالجة"
-
-def verify_with_timeout():
-    """التحقق مع مهلة زمنية ومحاولات متعددة"""
-    start = time.time()
-    attempts = 0
-    
-    print(f"🕵️ بدء التحقق من الوجه (Timeout={MAX_VERIFY_SECONDS}s)...")
-
-    while (time.time() - start) < MAX_VERIFY_SECONDS:
-        attempts += 1
-        
-        is_verified, msg = check_face_auth()
-        
-        if is_verified:
-            print(f"✅ {msg}")
-            return {"verified": True, "reason": "FACE_MATCH", "message": msg}
-        
-        # Wait a bit between attempts (InsightFace is fast, but let's not spam)
-        time.sleep(0.3)
-
-    return {"verified": False, "reason": "TIMEOUT_OR_NO_MATCH", "message": "انتهت المهلة: لم يتم التعرف على الوجه"}

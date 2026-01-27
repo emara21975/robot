@@ -566,6 +566,14 @@
                         <circle cx="12" cy="7" r="4"></circle>
                     </svg>
                 </a>
+                <a href="/enroll" class="nav-item" title="تسجيل وجوه جديدة">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                        <line x1="12" y1="11" x2="12" y2="17"></line>
+                        <line x1="9" y1="14" x2="15" y2="14"></line>
+                    </svg>
+                </a>
                 <a href="/statistics" class="nav-item" title="الإحصائيات">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -619,11 +627,15 @@
                         style="margin-top: 10px; color: var(--text-muted); text-align: center; display: none;">
                         يرجى النظر للكاميرا لتأكيد الهوية
                     </p>
-                    <div style="text-align: center; margin-top: 15px;">
+                    <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
                         <button onclick="verifyFace()" class="btn-large"
-                            style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1rem; cursor: pointer;">
+                            style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1rem; cursor: pointer; flex: 1; max-width: 200px;">
                             📸 تحقق من الوجه
                         </button>
+                        <a href="/enroll" class="btn-large"
+                            style="background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1rem; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; flex: 1; max-width: 200px;">
+                            ➕ تسجيل جديد
+                        </a>
                     </div>
                     <div id="face-status"
                         style="text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px;"></div>
@@ -942,15 +954,35 @@
                 const res = await fetch('/api/settings');
                 const data = await res.json();
                 const camContainer = document.getElementById('camera-container');
+                const instructions = document.getElementById('camera-instruction');
+                const statusLabel = document.getElementById('camera-status-label');
 
-                // Always show camera for preview (Solution 3)
+                // Always show camera for preview
                 camContainer.style.display = 'block';
 
-                // Update UI hints based on auth settings if needed, but keep video visible.
-                const instructions = document.getElementById('camera-instruction');
-                if (instructions) {
-                    if (data.auth_enabled) instructions.style.display = 'block';
-                    else instructions.style.display = 'none';
+                // Update UI hints based on auth settings
+                if (data.auth_enabled) {
+                    // ✅ النظام مفعل - التحقق مطلوب
+                    if (instructions) {
+                        instructions.style.display = 'block';
+                        instructions.textContent = '⚠️ التحقق من الوجه مطلوب قبل صرف الدواء';
+                        instructions.style.color = 'var(--warning)';
+                    }
+                    if (statusLabel) {
+                        statusLabel.innerHTML = '🔴 بث حي | 🔒 التحقق مفعل';
+                        statusLabel.style.background = 'rgba(239, 68, 68, 0.8)';
+                    }
+                } else {
+                    // ⚠️ النظام معطل - الصرف مباشر
+                    if (instructions) {
+                        instructions.style.display = 'block';
+                        instructions.textContent = 'ℹ️ التحقق معطل - الصرف المباشر متاح';
+                        instructions.style.color = 'var(--text-muted)';
+                    }
+                    if (statusLabel) {
+                        statusLabel.innerHTML = '🔴 بث حي | 🔓 التحقق معطل';
+                        statusLabel.style.background = 'rgba(0, 0, 0, 0.6)';
+                    }
                 }
             } catch (e) {
                 console.log("Error checking settings");
@@ -1031,20 +1063,24 @@
                 } else {
                     // Error Handling
                     if (res.status === 403) {
-                        // Auth Failed - Enforce 1 Minute Wait
-                        alert(`❌ ${data.status}\nيرجى الانتظار دقيقة قبل المحاولة مرة أخرى.`);
+                        // Auth Failed - رفض بسبب عدم التحقق
+                        const errorMsg = data.status || "رفض الصرف: يرجى التحقق من الوجه أولاً";
+                        
+                        // رسالة واضحة للمستخدم
+                        alert(`❌ ${errorMsg}\n\n💡 الحل:\n1. اضغط زر "📸 تحقق من الوجه" أعلى الصفحة\n2. انتظر ظهور رسالة "✅ أهلاً [اسمك]"\n3. اضغط "فتح للطوارئ" مرة أخرى`);
 
-                        let timeLeft = 60;
+                        // قفل الزر مؤقتاً
+                        let timeLeft = 10;
                         btnOpen.disabled = true;
 
                         const lockInterval = setInterval(() => {
-                            btnOpen.innerHTML = `⛔ انتظار (${timeLeft}s)`;
+                            btnOpen.innerHTML = `⏳ انتظر ${timeLeft}s`;
                             timeLeft--;
 
                             if (timeLeft < 0) {
                                 clearInterval(lockInterval);
                                 btnOpen.disabled = false;
-                                btnOpen.innerHTML = '🔄 إعادة المحاولة';
+                                btnOpen.innerHTML = '🔄 حاول مرة أخرى';
                             }
                         }, 1000);
 
@@ -1094,29 +1130,53 @@
                 btnConfirm.innerHTML = '✅ تم أخذ الدواء';
             }
         }
-        // Face Verification
+        // Face Verification (نظام بسيط - يعتمد على آخر وجه من stream)
         function verifyFace() {
             const statusDiv = document.getElementById("face-status");
-            if (statusDiv) statusDiv.innerHTML = "⏳ جاري التحقق...";
+            const btn = event.target;
+            
+            // تعطيل الزر مؤقتاً
+            btn.disabled = true;
+            btn.innerHTML = "⏳ جاري التحقق...";
+            
+            if (statusDiv) statusDiv.innerHTML = "<span style='color: var(--warning)'>⏳ جاري التحقق من الوجه...</span>";
 
             fetch("/verify-face")
                 .then(res => res.json())
                 .then(data => {
                     if (data.verified) {
-                        const msg = `✅ تم التحقق: ${data.message || "مسموح"}`;
-                        if (statusDiv) statusDiv.innerHTML = `<span style="color: var(--success)">${msg}</span>`;
-                        else alert(msg);
+                        // ✅ نجح التحقق
+                        const msg = `✅ ${data.message}`;
+                        if (statusDiv) {
+                            statusDiv.innerHTML = `<span style="color: var(--success); font-size: 1.2rem;">${msg}</span>`;
+                        }
+                        // تأثير بصري
+                        statusDiv.style.animation = "pulse-green 1s";
+                        setTimeout(() => statusDiv.style.animation = "", 1000);
+                        
                     } else {
-                        const msg = `❌ غير مصرح: ${data.message || "وجه غير معروف"}`;
-                        if (statusDiv) statusDiv.innerHTML = `<span style="color: var(--danger)">${msg}</span>`;
-                        else alert(msg);
+                        // ❌ فشل التحقق
+                        let icon = "❌";
+                        if (data.reason === "NO_FACE") icon = "👤";
+                        else if (data.reason === "UNKNOWN_FACE") icon = "⚠️";
+                        
+                        const msg = `${icon} ${data.message}`;
+                        if (statusDiv) {
+                            statusDiv.innerHTML = `<span style="color: var(--danger); font-size: 1.1rem;">${msg}</span>`;
+                        }
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    const msg = "❌ خطأ في الاتصال";
-                    if (statusDiv) statusDiv.innerHTML = `<span style="color: var(--danger)">${msg}</span>`;
-                    else alert(msg);
+                    const msg = "❌ خطأ في الاتصال بالخادم";
+                    if (statusDiv) {
+                        statusDiv.innerHTML = `<span style="color: var(--danger)">${msg}</span>`;
+                    }
+                })
+                .finally(() => {
+                    // إعادة تفعيل الزر
+                    btn.disabled = false;
+                    btn.innerHTML = "📸 تحقق من الوجه";
                 });
         }
     </script>
