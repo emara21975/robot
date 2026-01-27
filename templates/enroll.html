@@ -96,6 +96,36 @@
             font-weight: 600;
         }
         .nav-link:hover { color: var(--accent); }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            font-weight: 600;
+            transition: transform 0.2s, opacity 0.3s;
+        }
+        
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+        
+        .nav-btn-primary {
+            background: var(--primary);
+        }
+        
+        .nav-btn-success {
+            background: var(--success);
+        }
     </style>
 </head>
 <body>
@@ -114,11 +144,11 @@
         
         <div id="statusMsg" class="status"></div>
         
-        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap;">
-            <a href="/" class="nav-link" style="background: var(--primary); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn nav-btn-primary">
                 ← لوحة التحكم
             </a>
-            <a href="/patient" class="nav-link" style="background: var(--success); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+            <a href="/patient" class="nav-btn nav-btn-success">
                 📋 شاشة المريض
             </a>
         </div>

@@ -93,6 +93,7 @@
             width: 80px;
             height: 100%;
             background: rgba(15, 23, 42, 0.5);
+            -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
             border-left: 1px solid var(--border-color);
             display: flex;
@@ -189,6 +190,7 @@
         /* Time Hero */
         .time-hero {
             background: var(--bg-card);
+            -webkit-backdrop-filter: blur(24px);
             backdrop-filter: blur(24px);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
@@ -221,6 +223,7 @@
 
         .medicine-card {
             background: var(--bg-card);
+            -webkit-backdrop-filter: blur(24px);
             backdrop-filter: blur(24px);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
@@ -393,6 +396,7 @@
         /* No Schedule */
         .no-schedule {
             background: var(--bg-card);
+            -webkit-backdrop-filter: blur(24px);
             backdrop-filter: blur(24px);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
@@ -609,36 +613,29 @@
                 <!-- Camera Section (Left in RTL) -->
                 <div id="camera-container">
                     <div class="camera-box">
-                        <img id="camera-feed-img" src="/video"
-                            style="width: 100%; height: 100%; object-fit: cover; display: block;" alt="بث الكاميرا">
+                        <img id="camera-feed-img" src="/video" class="camera-feed" alt="بث الكاميرا">
 
-                        <div id="camera-placeholder"
-                            style="text-align: center; color: var(--text-muted); display: none;">
-                            <div style="font-size: 2.5rem; margin-bottom: 5px;">📷</div>
-                            <p style="margin: 0; font-size: 0.9rem;">الكاميرا قيد التشغيل</p>
+                        <div id="camera-placeholder" class="camera-placeholder">
+                            <div class="camera-placeholder-icon">📷</div>
+                            <p class="camera-placeholder-text">الكاميرا قيد التشغيل</p>
                         </div>
 
-                        <div id="camera-status-label"
-                            style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 8px; font-size: 0.7rem; display:block;">
+                        <div id="camera-status-label" class="camera-status-badge">
                             🔴 بث حي
                         </div>
                     </div>
-                    <p id="camera-instruction"
-                        style="margin-top: 10px; color: var(--text-muted); text-align: center; display: none;">
+                    <p id="camera-instruction" class="camera-instruction">
                         يرجى النظر للكاميرا لتأكيد الهوية
                     </p>
-                    <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="verifyFace()" class="btn-large"
-                            style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1rem; cursor: pointer; flex: 1; max-width: 200px;">
+                    <div class="camera-controls">
+                        <button onclick="verifyFace()" class="btn-large verify-btn">
                             📸 تحقق من الوجه
                         </button>
-                        <a href="/enroll" class="btn-large"
-                            style="background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1rem; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; flex: 1; max-width: 200px;">
+                        <a href="/enroll" class="btn-large enroll-btn">
                             ➕ تسجيل جديد
                         </a>
                     </div>
-                    <div id="face-status"
-                        style="text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px;"></div>
+                    <div id="face-status" class="face-status"></div>
                 </div>
             </div>
 
@@ -699,6 +696,91 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                }
+                
+                .camera-feed {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+                
+                .camera-placeholder {
+                    text-align: center;
+                    color: var(--text-muted);
+                    display: none;
+                }
+                
+                .camera-placeholder-icon {
+                    font-size: 2.5rem;
+                    margin-bottom: 5px;
+                }
+                
+                .camera-placeholder-text {
+                    margin: 0;
+                    font-size: 0.9rem;
+                }
+                
+                .camera-status-badge {
+                    position: absolute;
+                    bottom: 8px;
+                    right: 8px;
+                    background: rgba(0,0,0,0.6);
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 8px;
+                    font-size: 0.7rem;
+                    display: block;
+                }
+                
+                .camera-instruction {
+                    margin-top: 10px;
+                    color: var(--text-muted);
+                    text-align: center;
+                    display: none;
+                }
+                
+                .camera-controls {
+                    text-align: center;
+                    margin-top: 15px;
+                    display: flex;
+                    gap: 10px;
+                    justify-content: center;
+                }
+                
+                .verify-btn {
+                    background: var(--primary);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 12px;
+                    font-size: 1rem;
+                    cursor: pointer;
+                    flex: 1;
+                    max-width: 200px;
+                }
+                
+                .enroll-btn {
+                    background: var(--success);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 12px;
+                    font-size: 1rem;
+                    cursor: pointer;
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 1;
+                    max-width: 200px;
+                }
+                
+                .face-status {
+                    text-align: center;
+                    margin-top: 10px;
+                    font-weight: bold;
+                    min-height: 24px;
                 }
             </style>
 
