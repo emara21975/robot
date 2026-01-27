@@ -244,14 +244,16 @@ def verify():
     val = str(get_setting("auth_enabled", "0")).strip()
     auth_enabled = val == "1"
     
+    print(f"🔍 [VERIFY] auth_enabled من DB: '{val}' → النتيجة: {auth_enabled}")
+    
     if not auth_enabled:
-        # ✅ النظام معطل - السماح المباشر
-        log_event("VERIFY", "SKIPPED", "Authentication disabled", "INFO")
+        # ⚠️ النظام معطل - السماح المباشر (بدون تحقق)
+        log_event("VERIFY", "SKIPPED", "Authentication disabled - auto-approved", "INFO")
         robot_state.set(RobotState.VERIFIED)
         return jsonify({
             "verified": True,
             "reason": "AUTH_DISABLED",
-            "message": "✅ تم السماح بالفتح: نظام التحقق معطّل"
+            "message": "تم السماح بالفتح مباشرة (التحقق معطّل)"
         })
     
     # 1. فحص إذا كان النظام مشغول
