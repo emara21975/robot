@@ -943,10 +943,14 @@
                 const data = await res.json();
                 const camContainer = document.getElementById('camera-container');
 
-                if (data.auth_enabled) {
-                    camContainer.style.display = 'block';
-                } else {
-                    camContainer.style.display = 'none';
+                // Always show camera for preview (Solution 3)
+                camContainer.style.display = 'block';
+
+                // Update UI hints based on auth settings if needed, but keep video visible.
+                const instructions = document.getElementById('camera-instruction');
+                if (instructions) {
+                    if (data.auth_enabled) instructions.style.display = 'block';
+                    else instructions.style.display = 'none';
                 }
             } catch (e) {
                 console.log("Error checking settings");

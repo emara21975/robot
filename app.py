@@ -171,15 +171,8 @@ def handle_settings():
         return jsonify({"auth_enabled": auth_enabled})
 
 
-# استيراد وحدة التعرّف على الوجه
-# استيراد وحدة التعرّف على الوجه
-try:
-    from face_auth import check_face_auth, verify_with_timeout
-except Exception as e:
-    print(f"⚠️ نظام التعرف على الوجه معطل بسبب خطأ: {e}")
-    # Fallback functions
-    def check_face_auth(frame=None): return True, f"نظام الوجه معطل: {e}"
-    def verify_with_timeout(): return {"verified": True, "reason": "DISABLED", "message": f"نظام الوجه معطل: {e}"}
+# Face Auth is handled via stream.py state
+from robot.camera.stream import get_last_face
 
 
 # ========== Face Enrollment ==========
@@ -240,41 +233,46 @@ def api_enroll_face():
 
 @app.route("/verify-face")
 def verify():
-    """التحقق من الوجه (مع مهلة زمنية وآلة الحالة)."""
-    # 0. Check if Auth is Enabled Globally
+    """التحقق من الوجه (باستخدام آخر نتيجة من الكاميرا مباشرة)."""
+    
+    # 0. Check Status First
     auth_enabled = get_setting("auth_enabled", "0") == "1"
     if not auth_enabled:
-         return jsonify({"verified": True, "reason": "DISABLED", "message": "نظام الوجه غير مفعل من الإعدادات"}), 200
+         return jsonify({"verified": True, "reason": "DISABLED", "message": "نظام الوجه غير مفعل"}), 200
 
-    # 1. Check State
     if robot_state.current in [RobotState.VERIFYING, RobotState.DISPENSING]:
         return jsonify({"verified": False, "reason": "BUSY", "message": "النظام مشغول حالياً"}), 200
 
-    # 2. Transition to VERIFYING
     robot_state.set(RobotState.VERIFYING)
 
+    # 1. Check Global State from Stream
     try:
-        # Pass the auth setting context if needed, but we already checked it.
-        result = verify_with_timeout()
+        current_face = get_last_face()
+        now = time.time()
         
-        # Fail-safe
-        if not isinstance(result, dict) or "verified" not in result:
-             robot_state.set(RobotState.IDLE)
-             return jsonify({"verified": False, "reason": "BAD_RESPONSE", "message": "استجابة غير صالحة"}), 200
-        
-        if result["verified"]:
-            log_event("VERIFY", robot_state.current, f"Verified: {result.get('message')}", "SUCCESS")
-            robot_state.set(RobotState.VERIFIED)
-        else:
-            log_event("VERIFY", robot_state.current, f"Failed: {result.get('message')}", "FAILED")
-            robot_state.set(RobotState.IDLE)
+        # Check if face was seen recently (e.g. within last 3 seconds)
+        if (now - current_face["time"]) < 3.0:
+            name = current_face["name"]
             
-        return jsonify(result)
+            if name != "Unknown":
+                # SUCCESS
+                msg = f"أهلاً بك، {name}"
+                log_event("VERIFY", robot_state.current, f"Verified: {name}", "SUCCESS")
+                robot_state.set(RobotState.VERIFIED)
+                return jsonify({"verified": True, "reason": "FACE_MATCH", "message": msg})
+            else:
+                # UNKNOWN
+                robot_state.set(RobotState.IDLE)
+                return jsonify({"verified": False, "reason": "UNKNOWN_FACE", "message": "وجه غير معروف، يرجى التسجيل"})
+        else:
+            # NO RECENT FACE
+            robot_state.set(RobotState.IDLE)
+            return jsonify({"verified": False, "reason": "NO_FACE", "message": "لم يتم العثور على وجه مؤخراً"})
+
     except Exception as e:
-        robot_state.set(RobotState.IDLE) # Reset on error
-        log_event("VERIFY", robot_state.current, f"Error: {e}", "ERROR")
-        print(f"❌ Critical Error in /verify-face: {e}")
-        return jsonify({"verified": False, "reason": "SYSTEM_ERROR", "message": "حدث خطأ في النظام"}), 200
+        robot_state.set(RobotState.IDLE)
+        print(f"Verify Error: {e}")
+        return jsonify({"verified": False, "reason": "ERROR", "message": "خطأ في النظام"}), 200
 
 
 # ========== API التحكم في الصناديق ==========

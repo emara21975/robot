@@ -27,6 +27,17 @@ face_engine = None
 faces_db = {}
 last_db_refresh = 0
 
+# Shared state for access by other modules (app.py)
+last_recognized_face = {
+    "name": "Unknown",
+    "score": 0.0,
+    "time": 0
+}
+
+def get_last_face():
+    """Returns the last recognized face and its timestamp."""
+    return last_recognized_face
+
 def get_face_engine():
     global face_engine, faces_db, last_db_refresh
     if face_engine is None:
@@ -92,8 +103,15 @@ def gen_frames():
                     # Bounding Box (cast to int)
                     x1, y1, x2, y2 = map(int, face.bbox)
                     
+
                     # Recognition
                     name, score = match_face(face.embedding, faces_db, threshold=0.5)
+                    
+                    # UPDATE GLOBAL STATE (For app.py)
+                    if name != "Unknown":
+                        last_recognized_face["name"] = name
+                        last_recognized_face["score"] = float(score)
+                        last_recognized_face["time"] = time.time()
                     
                     # Color: Green for known, Red for Unknown
                     color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
