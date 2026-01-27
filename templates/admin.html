@@ -202,7 +202,8 @@
                 <div class="card schedule-card">
                     <div class="card-header">
                         <span class="card-title">
-                            <span class="status-dot-dynamic {{ 'dot-primary' if box_id % 2 != 0 else 'dot-secondary' }}"
+                            <span
+                                class="status-dot-dynamic {% if box_id % 2 != 0 %}dot-primary{% else %}dot-secondary{% endif %}"
                                 style="width: 8px; height: 8px; border-radius: 50%;"></span>
                             الصندوق {{ box_id }}
                         </span>
@@ -218,7 +219,7 @@
 
                     <!-- إعدادات المخزون -->
                     <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
-                        <h4 class="{{ 'header-accent-primary' if box_id % 2 != 0 else 'header-accent-secondary' }}"
+                        <h4 class="{% if box_id % 2 != 0 %}header-accent-primary{% else %}header-accent-secondary{% endif %}"
                             style="margin-bottom: 10px; font-size: 0.9rem;">
                             📊 إدارة المخزون</h4>
 
@@ -274,7 +275,8 @@
                                 max="59" value="00"></div>
                     </div>
                     <button onclick="setTimer({{ box_id }})"
-                        class="btn-large btn-{{ 'primary' if box_id % 2 != 0 else 'secondary' }}">⏰ حفظ وتفعيل</button>
+                        class="btn-large {% if box_id % 2 != 0 %}btn-primary{% else %}btn-secondary{% endif %}">⏰ حفظ
+                        وتفعيل</button>
                     <div id="timer-display-{{ box_id }}" class="countdown-display">التالي: <span
                             id="countdown-{{ box_id }}">--:--:--</span>
                     </div>
