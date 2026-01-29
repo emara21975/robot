@@ -30,16 +30,20 @@ echo "3️⃣ تثبيت OpenCV..."
 pip install opencv-python-headless
 
 echo ""
-echo "4️⃣ تثبيت Core Utils (NumPy Safe Mode)..."
-# Critical: NumPy 2.x breaks ONNXRuntime on ARM. We must use 1.26.x
-pip install "numpy<2.0" "ml_dtypes==0.4.1"
+echo "4️⃣ تثبيت Core Utils (The Golden Combination)..."
+# Uninstall first to ensure no conflicts
+pip uninstall -y onnx onnxruntime ml_dtypes numpy
+
+# Install compatible versions for ARM/Pi
+pip install \
+numpy==1.26.4 \
+ml_dtypes==0.4.1 \
+onnx==1.14.1 \
+onnxruntime==1.23.2 \
+insightface
 
 echo ""
-echo "5️⃣ تثبيت AI Engines..."
-pip install onnxruntime==1.17.3 insightface==0.7.3
-
-echo ""
-echo "6️⃣ تثبيت مكتبات إضافية..."
+echo "5️⃣ تثبيت مكتبات إضافية..."
 pip install scikit-image
 
 echo ""
