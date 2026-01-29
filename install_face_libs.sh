@@ -1,129 +1,95 @@
 #!/bin/bash
 # ===================================================
 # 🤖 تثبيت مكتبات التعرف على الوجوه - Raspberry Pi
+# 🐍 Python 3.11 Edition (Stable for AI/ONNX)
 # ===================================================
 
 echo "=================================================="
-echo "🚀 بدء تثبيت مكتبات نظام التعرف على الوجوه"
+echo "🚀 بدء تثبيت البيئة المستقرة (Python 3.11)"
 echo "=================================================="
 
-# التحقق من وجود venv
-if [ ! -d "venv" ]; then
-    echo "⚠️  لا يوجد venv - سيتم الإنشاء..."
-    python3 -m venv venv
+# 1. Install Python 3.11 if missing
+echo ""
+echo "1️⃣ التأكد من وجود Python 3.11..."
+if ! command -v python3.11 &> /dev/null; then
+    echo "⚠️ Python 3.11 غير موجود. جاري التثبيت..."
+    sudo apt-get update
+    sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+else
+    echo "✅ Python 3.11 موجود."
 fi
 
-# تفعيل venv
-source venv/bin/activate
+# 2. Setup venv311
+echo ""
+echo "2️⃣ إنشاء بيئة افتراضية جديدة (venv311)..."
+if [ -d "venv311" ]; then
+    echo "⚠️ تم العثور على venv311 سابق. جاري الحذف لضمان نظافة البيئة..."
+    rm -rf venv311
+fi
+
+python3.11 -m venv venv311
+source venv311/bin/activate
 
 echo ""
-echo "1️⃣ تحديث pip..."
+echo "3️⃣ تحديث pip..."
 pip install --upgrade pip
 
+# 3. Install Golden Combination
 echo ""
-echo "2️⃣ تثبيت المتطلبات الأساسية..."
-sudo apt-get update
-sudo apt-get install -y python3-opencv libopenblas-dev
-
-echo ""
-echo "3️⃣ تثبيت OpenCV..."
-pip install opencv-python-headless
-
-echo ""
-echo "4️⃣ تثبيت Core Utils (The Golden Combination)..."
-# Uninstall first to ensure no conflicts
-pip uninstall -y onnx onnxruntime ml_dtypes numpy
-
-# Install compatible versions for ARM/Pi
+echo "4️⃣ تثبيت الخلطة الذهبية (Golden Combo)..."
+# pinned versions known to work on ARM64/Pi
 pip install \
 numpy==1.26.4 \
 ml_dtypes==0.4.1 \
 onnx==1.14.1 \
 onnxruntime==1.23.2 \
-insightface
-
-echo ""
-echo "5️⃣ تثبيت مكتبات إضافية..."
-pip install scikit-image
+insightface==0.7.3 \
+opencv-python-headless \
+flask \
+pyserial \
+"RPi.GPIO" \
+scikit-image
 
 echo ""
 echo "=================================================="
-echo "✅ اكتمل التثبيت!"
+echo "✅ اكتمل التثبيت بنجاح!"
 echo "=================================================="
 
 echo ""
-echo "🔍 التحقق من المكتبات..."
+echo "🔍 فحص التثبيت..."
 python3 << 'EOF'
 import sys
-
-print("\n" + "="*50)
-print("📦 فحص المكتبات المثبتة")
-print("="*50)
-
-# Test OpenCV
 try:
-    import cv2
-    print(f"✅ OpenCV: {cv2.__version__}")
-except ImportError as e:
-    print(f"❌ OpenCV: {e}")
-    sys.exit(1)
-
-# Test ONNX Runtime
-try:
-    import onnxruntime as ort
-    print(f"✅ ONNX Runtime: {ort.__version__}")
-    print(f"   الجهاز: {ort.get_device()}")
-except ImportError as e:
-    print(f"❌ ONNX Runtime: {e}")
-    sys.exit(1)
-
-# Test InsightFace
-try:
-    import insightface
-    print(f"✅ InsightFace: {insightface.__version__}")
-except ImportError as e:
-    print(f"❌ InsightFace: {e}")
-    sys.exit(1)
-
-print("="*50)
-print("🎉 جميع المكتبات مثبتة وجاهزة!")
-print("="*50)
-EOF
-
-echo ""
-echo "🧪 اختبار محرك التعرف على الوجوه..."
-python3 << 'EOF'
-try:
-    print("\n⏳ تحميل محرك InsightFace...")
+    import numpy
+    import ml_dtypes
+    import onnx
+    import onnxruntime
     from insightface.app import FaceAnalysis
     
-    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+    print("\n" + "="*40)
+    print(f"python: {sys.version.split()[0]}")
+    print(f"numpy: {numpy.__version__}")
+    print(f"ml_dtypes: {ml_dtypes.__version__}")
+    print(f"onnx: {onnx.__version__}")
+    print(f"onnxruntime: {onnxruntime.__version__}")
+    
+    app = FaceAnalysis(name="buffalo_l", providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
-    
-    print("✅ FaceEngine جاهز للعمل!")
-    print("   النموذج: buffalo_l")
-    print("   المعالج: CPU")
-    
+    print("✅ FaceEngine: LOADED SUCCESSFULLY")
+    print("="*40)
 except Exception as e:
-    print(f"❌ فشل تحميل المحرك: {e}")
-    exit(1)
+    print(f"\n❌ FAILED: {e}")
+    sys.exit(1)
 EOF
 
 echo ""
 echo "=================================================="
-echo "🎯 الخطوات التالية:"
+echo "🎯 الخطوة الأخيرة والمهمة جدًا!"
 echo "=================================================="
-echo "1. شغل السيرفر:"
-echo "   python app.py"
+echo "لكي يعمل السيرفر بهذه المكتبات، يجب عليك استخدام البيئة الجديدة."
+echo "نفذ هذا الأمر لتشغيل السيرفر:"
 echo ""
-echo "2. افتح المتصفح على:"
-echo "   http://192.168.1.68:5000/patient"
+echo "source venv311/bin/activate"
+echo "python app.py"
 echo ""
-echo "3. يجب أن ترى:"
-echo "   ✅ بث الفيديو"
-echo "   ✅ مربع أحمر حول وجهك"
-echo "   ✅ Unknown (إذا لم تسجل بعد)"
-echo ""
-echo "4. للتسجيل:"
-echo "   http://192.168.1.68:5000/enroll"
 echo "=================================================="
