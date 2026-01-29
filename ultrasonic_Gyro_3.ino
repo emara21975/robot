@@ -199,21 +199,9 @@ void turnInPlace() {
 }
 
 // ============ Emergency Logic ============
-void checkEmergencyButton() {
-  // Check if button Pressed (assuming Active HIGH with external PULLDOWN or
-  // internal PULLDOWN if supported) Modify condition if button is Active LOW
-  // (LOW)
-  if (digitalRead(EMERGENCY_PIN) == HIGH && !emergencyActive) {
-    emergencyActive = true;
-    emergencyStartMs = millis();
-
-    state = EMERGENCY;
-    stopRobot();
-    openMedicineBox();
-
-    Serial.println("🚨 EMERGENCY ACTIVATED: BOX OPENED");
-  }
-}
+// void checkEmergencyButton() {
+//   // Physical Button Disabled
+// }
 
 void handleEmergencyState() {
   stopRobot();
@@ -244,11 +232,8 @@ void setup() {
   pinMode(echoPin, INPUT);
 
   // Emergency Setup
-  // Note: INPUT_PULLDOWN not supported on standard Arduino Uno/Nano (AVR).
-  // If using Uno, use INPUT_PULLUP (logic reversed) or INPUT (with external
-  // resistor). Assuming the user has the correct hardware setup as per their
-  // request.
-  pinMode(EMERGENCY_PIN, INPUT_PULLDOWN);
+  // Physical Button Disabled by User Request
+  // pinMode(EMERGENCY_PIN, INPUT_PULLDOWN);
 
   medServo.attach(MED_SERVO_PIN);
   closeMedicineBox();
@@ -317,8 +302,8 @@ void checkSerialCommands() {
 static unsigned long lastPrintTime = 0;
 
 void loop() {
-  // 1. Emergency Check (Highest Priority)
-  checkEmergencyButton();
+  // 1. Emergency Check (Disabled)
+  // checkEmergencyButton();
 
   // 2. Emergency Handler
   if (state == EMERGENCY) {

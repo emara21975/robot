@@ -8,46 +8,35 @@ echo "=================================================="
 echo "🚀 بدء تثبيت البيئة المستقرة (Python 3.11)"
 echo "=================================================="
 
-# 1. Install Python 3.11 if missing
+# 1. Install Dependencies for building ONNX (since wheels might be missing for Py3.13)
 echo ""
-echo "1️⃣ التأكد من وجود Python 3.11..."
-if ! command -v python3.11 &> /dev/null; then
-    echo "⚠️ Python 3.11 غير موجود. جاري التثبيت..."
-    sudo apt-get update
-    sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
-else
-    echo "✅ Python 3.11 موجود."
-fi
+echo "1️⃣ تثبيت أدوات البناء (لضمان عمل ONNX على أي إصدار Python)..."
+sudo apt-get update
+sudo apt-get install -y python3-dev python3-venv cmake protobuf-compiler libprotobuf-dev
 
-# 2. Setup venv311
+# 2. Setup venv (using system default python)
 echo ""
-echo "2️⃣ تنظيف البيئات القديمة وإنشاء بيئة جديدة (venv311)..."
+echo "2️⃣ تنظيف البيئات القديمة وإنشاء بيئة جديدة (venv)..."
 rm -rf venv venv311 .venv
-echo "   🗑️ تم حذف البيئات القديمة."
-
-echo "   ✨ جارٍ إنشاء مساحة عمل نظيفة..."
-python3.11 -m venv venv311
-source venv311/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 
 echo ""
 echo "3️⃣ تحديث pip..."
-pip install --upgrade pip
+pip install --upgrade pip setuptools wheel
 
-# 3. Install Golden Combination
+# 3. Install Libraries
 echo ""
-echo "4️⃣ تثبيت الخلطة الذهبية (Golden Combo)..."
-# pinned versions known to work on ARM64/Pi
-pip install \
-numpy==1.26.4 \
-ml_dtypes==0.4.1 \
-onnx==1.14.1 \
-onnxruntime==1.23.2 \
-insightface==0.7.3 \
-opencv-python-headless \
-flask \
-pyserial \
-"RPi.GPIO" \
-scikit-image
+echo "4️⃣ تثبيت المكتبات (سيتم بناء ONNX إذا لزم الأمر)..."
+# We DO NOT pin versions here strictly, to allow compiling latest onnx if needed
+# But we pin numpy to be safe(r) if possible, though newer OpenCV might want newer numpy.
+# Let's trust the solver but give it build tools.
+
+pip install numpy==1.26.4
+pip install onnx  # Will compile from source if no wheel, now that we have protobuf-compiler
+pip install onnxruntime
+pip install insightface
+pip install opencv-python-headless flask pyserial RPi.GPIO scikit-image
 
 echo ""
 echo "=================================================="
