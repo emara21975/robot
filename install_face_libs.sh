@@ -27,20 +27,20 @@ sudo apt-get install -y python3-opencv libopenblas-dev
 
 echo ""
 echo "3️⃣ تثبيت OpenCV..."
-pip install opencv-python
+pip install opencv-python-headless
 
 echo ""
-echo "4️⃣ تثبيت ONNX Runtime (نسخة CPU)..."
-pip install onnxruntime==1.17.3
+echo "4️⃣ تثبيت Core Utils (NumPy Safe Mode)..."
+# Critical: NumPy 2.x breaks ONNXRuntime on ARM. We must use 1.26.x
+pip install "numpy<2.0" "ml_dtypes==0.4.1"
 
 echo ""
-echo "5️⃣ تثبيت InsightFace..."
-pip install insightface==0.7.3
+echo "5️⃣ تثبيت AI Engines..."
+pip install onnxruntime==1.17.3 insightface==0.7.3
 
 echo ""
 echo "6️⃣ تثبيت مكتبات إضافية..."
-pip install --upgrade ml_dtypes
-pip install numpy scikit-image
+pip install scikit-image
 
 echo ""
 echo "=================================================="
