@@ -1,8 +1,18 @@
 Flask==3.0.0
-opencv-python>=4.9.0
-numpy>=2.0.0
+
+# Computer Vision
+opencv-python-headless==4.9.0.80
+
+# NumPy (آخر نسخة تدعم Python 3.13 + wheels على piwheels)
+numpy>=1.26.4,<2.0
+
+# Hardware / Serial
 pyserial==3.5
-insightface>=0.7.3
-onnxruntime; platform_machine != "armv7l" and platform_machine != "aarch64"
-onnxruntime; platform_machine == "aarch64"
 RPi.GPIO==0.7.1; platform_machine == "armv7l" or platform_machine == "aarch64"
+
+# Face Recognition
+insightface>=0.7.3
+
+# ONNX Runtime
+onnxruntime>=1.20.0; platform_machine == "aarch64"
+onnxruntime; platform_machine != "armv7l" and platform_machine != "aarch64"

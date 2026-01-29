@@ -217,7 +217,9 @@ def api_enroll_face():
         # Detect Face
         engine = get_face_engine()
         if not engine:
-             return jsonify({"status": "error", "message": "محرك الوجوه غير جاهز"}), 500
+             from robot.camera.stream import get_face_engine_error
+             err = get_face_engine_error() or "Unknown Error"
+             return jsonify({"status": "error", "message": f"محرك الوجوه غير جاهز: {err}"}), 500
              
         faces = engine.detect(frame)
         

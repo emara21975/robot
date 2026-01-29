@@ -24,6 +24,7 @@ def get_placeholder_frame(text="NO CAMERA SIGNAL"):
 
 # Initialize Face Engine (Lazy Load to prevent startup delay)
 face_engine = None
+face_engine_error = None
 faces_db = {}
 last_db_refresh = 0
 
@@ -50,6 +51,8 @@ def get_face_engine():
             print("✅ Face Engine Loaded.")
         except Exception as e:
             print(f"❌ Error loading FaceEngine: {e}")
+            global face_engine_error
+            face_engine_error = str(e)
             face_engine = False # valid but disabled
     
     # Reload DB occasionally (e.g. every 10 seconds)
@@ -61,6 +64,10 @@ def get_face_engine():
              last_db_refresh = time.time()
              
     return face_engine
+
+def get_face_engine_error():
+    """Returns the initialization error if any."""
+    return face_engine_error
 
 def force_reload_faces():
     """Force reloading the face database on the next frame."""
@@ -96,8 +103,20 @@ def gen_frames():
             # Face Recognition Overlay
             engine = get_face_engine()
             
+            # Frame Skipping Logic
+            global frame_count
+            if 'frame_count' not in globals(): frame_count = 0
+            frame_count += 1
+            
+            # Use cached faces for 4 frames, update on 5th
+            if 'cached_faces' not in globals(): cached_faces = []
+            
             if engine:
-                faces = engine.detect(frame)
+                # Run detection every 5 frames
+                if frame_count % 5 == 0:
+                     cached_faces = engine.detect(frame)
+                
+                faces = cached_faces
                 
                 for face in faces:
                     # Bounding Box (cast to int)

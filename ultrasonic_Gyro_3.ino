@@ -1,7 +1,24 @@
 #include <MPU6050_light.h>
+#include <Servo.h>
 #include <Wire.h>
 
 MPU6050 mpu(Wire);
+
+// ======= Emergency Button =======
+#define EMERGENCY_PIN 7 // زر الطوارئ (Normally Open)
+
+// ======= Medicine Box Servo =======
+#define MED_SERVO_PIN 4
+Servo medServo;
+
+// زوايا الصندوق
+#define BOX_CLOSED_ANGLE 0
+#define BOX_OPEN_ANGLE 90
+
+// ======= Emergency State =======
+bool emergencyActive = false;
+unsigned long emergencyStartMs = 0;
+unsigned long emergencyAutoCloseMs = 15000; // 15 ثانية
 
 // ======= L298N ========
 int ENA = 5;
@@ -20,7 +37,7 @@ float distance;
 long duration;
 
 // -------- Robot State --------
-enum RobotState { IDLE, MOVING, TURNING };
+enum RobotState { IDLE, MOVING, TURNING, EMERGENCY };
 
 RobotState state = IDLE;
 bool isReversing = false;
@@ -65,6 +82,11 @@ float getDistance() {
   duration = pulseIn(echoPin, HIGH, 20000);
   return duration * 0.0343 / 2;
 }
+
+// ============ Medicine Box Control ============
+void openMedicineBox() { medServo.write(BOX_OPEN_ANGLE); }
+
+void closeMedicineBox() { medServo.write(BOX_CLOSED_ANGLE); }
 
 // ============ Motor Control ============
 void stopRobot() {
@@ -176,6 +198,36 @@ void turnInPlace() {
   analogWrite(ENB, turnSpeed);
 }
 
+// ============ Emergency Logic ============
+void checkEmergencyButton() {
+  // Check if button Pressed (assuming Active HIGH with external PULLDOWN or
+  // internal PULLDOWN if supported) Modify condition if button is Active LOW
+  // (LOW)
+  if (digitalRead(EMERGENCY_PIN) == HIGH && !emergencyActive) {
+    emergencyActive = true;
+    emergencyStartMs = millis();
+
+    state = EMERGENCY;
+    stopRobot();
+    openMedicineBox();
+
+    Serial.println("🚨 EMERGENCY ACTIVATED: BOX OPENED");
+  }
+}
+
+void handleEmergencyState() {
+  stopRobot();
+
+  // Auto Close after timeout
+  if (millis() - emergencyStartMs >= emergencyAutoCloseMs) {
+    closeMedicineBox();
+    emergencyActive = false;
+    state = IDLE;
+
+    Serial.println("🟢 EMERGENCY CLOSED: SYSTEM RESET TO IDLE");
+  }
+}
+
 // ============ Setup ============
 void setup() {
   Serial.begin(9600);
@@ -190,6 +242,16 @@ void setup() {
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+
+  // Emergency Setup
+  // Note: INPUT_PULLDOWN not supported on standard Arduino Uno/Nano (AVR).
+  // If using Uno, use INPUT_PULLUP (logic reversed) or INPUT (with external
+  // resistor). Assuming the user has the correct hardware setup as per their
+  // request.
+  pinMode(EMERGENCY_PIN, INPUT_PULLDOWN);
+
+  medServo.attach(MED_SERVO_PIN);
+  closeMedicineBox();
 
   Wire.begin();
   mpu.begin();
@@ -247,6 +309,16 @@ void checkSerialCommands() {
 static unsigned long lastPrintTime = 0;
 
 void loop() {
+  // 1. Emergency Check (Highest Priority)
+  checkEmergencyButton();
+
+  // 2. Emergency Handler
+  if (state == EMERGENCY) {
+    handleEmergencyState();
+    delay(20);
+    return; // Skip everything else
+  }
+
   checkSerialCommands();
 
   if (state == TURNING) {
