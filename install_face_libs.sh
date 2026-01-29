@@ -39,6 +39,7 @@ pip install insightface==0.7.3
 
 echo ""
 echo "6️⃣ تثبيت مكتبات إضافية..."
+pip install --upgrade ml_dtypes
 pip install numpy scikit-image
 
 echo ""

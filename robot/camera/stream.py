@@ -127,10 +127,10 @@ def gen_frames():
                     name, score = match_face(face.embedding, faces_db, threshold=0.5)
                     
                     # UPDATE GLOBAL STATE (For app.py)
-                    if name != "Unknown":
-                        last_recognized_face["name"] = name
-                        last_recognized_face["score"] = float(score)
-                        last_recognized_face["time"] = time.time()
+                    # Now we update for Unknown too, so app can verify 'detection' works
+                    last_recognized_face["name"] = name
+                    last_recognized_face["score"] = float(score) if score else 0.0
+                    last_recognized_face["time"] = time.time()
                     
                     # Color: Green for known, Red for Unknown
                     color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
