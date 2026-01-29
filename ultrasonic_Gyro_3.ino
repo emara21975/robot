@@ -301,6 +301,14 @@ void checkSerialCommands() {
       // Chain: Turn 180 -> Wait for next command (or User sends Start)
       startTurnDegrees(180);
       Serial.println("OK:STARTING_RETURN");
+
+    } else if (command == "OPEN_BOX") {
+      openMedicineBox();
+      Serial.println("OK:BOX_OPENED");
+      // Auto close after 3 seconds for safety
+      delay(3000);
+      closeMedicineBox();
+      Serial.println("OK:BOX_CLOSED");
     }
   }
 }

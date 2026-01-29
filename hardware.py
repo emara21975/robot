@@ -164,22 +164,46 @@ def go_home_zero():
 
 def dispense_dose(box_id):
     if box_id not in BOX_CONFIG: return False, f"رقم الصندوق {box_id} غير صحيح"
-    gate_pwm = gate_pwms.get(box_id) if HAS_GPIO else None
-    target_angle = BOX_CONFIG[box_id]['angle']
     
-    if not HAS_GPIO: print(f"[محاكاة] تدوير {box_id}")
-    move_servo(pwm_carousel, target_angle)
-    time.sleep(0.6)
+    # 1. Try Arduino Command first (Primary for Servo on Arduino)
+    if connect_arduino():
+        try:
+            print(f"📡 Sending OPEN_BOX to Arduino for Box {box_id}...")
+            # Note: The Arduino code currently opens the *only* servo it has (medServo).
+            # If we had multiple boxes controlled by Arduino, we'd need parameters like OPEN_BOX:1
+            # For now, we assume single servo logic or user only cares about 'the' box moving.
+            arduino.write(b'OPEN_BOX\n')
+            arduino.flush()
+            # Wait for Arduino confirmation or assumed timing
+            time.sleep(3.5) # Arduino waits 3s then closes
+            return True, f"تم صرف جرعة من الصندوق {box_id} (Arduino)"
+        except Exception as e:
+            print(f"⚠️ Failed to send to Arduino: {e}")
     
-    move_servo(gate_pwm, 90)
-    time.sleep(0.5)
-    
-    move_servo(gate_pwm, 0)
-    time.sleep(0.3)
-    
-    move_servo(pwm_carousel, ZERO_ANGLE)
-    time.sleep(0.4)
-    return True, f"تم صرف جرعة من الصندوق {box_id} بنجاح"
+    # 2. If Arduino failed or not connected, try Pi GPIO (Legacy/Direct)
+    if HAS_GPIO:
+        gate_pwm = gate_pwms.get(box_id)
+        target_angle = BOX_CONFIG[box_id]['angle']
+        
+        move_servo(pwm_carousel, target_angle)
+        time.sleep(0.6)
+        
+        move_servo(gate_pwm, 90)
+        time.sleep(0.5)
+        
+        move_servo(gate_pwm, 0)
+        time.sleep(0.3)
+        
+        move_servo(pwm_carousel, ZERO_ANGLE)
+        time.sleep(0.4)
+        return True, f"تم صرف جرعة من الصندوق {box_id} (GPIO)"
+
+    # 3. Simulation
+    if not is_arduino_connected() and not HAS_GPIO:
+        print(f"[محاكاة] تدوير {box_id}")
+        return True, "تم صرف الجرعة (محاكاة)"
+        
+    return False, "فشل الاتصال بالأردوينو أو GPIO"
 
 
 # ========== Robot Control Functions ==========

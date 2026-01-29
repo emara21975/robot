@@ -339,6 +339,20 @@ def open_box():
         
         # ✅ إذا النظام مفعل → لازم التحقق من الوجه
         if auth_enabled:
+            # Check if engine is actually healthy
+            from robot.camera.stream import get_face_engine
+            engine = get_face_engine()
+            
+            if engine is None or engine is False:
+                 # Engine is broken/missing, but Auth is ON.
+                 # Stop and tell user to disable Auth.
+                 return jsonify({
+                    "status": "⛔ خطأ: نظام الكاميرا غير جاهز",
+                    "error": "engine_error",
+                    "can_confirm": False,
+                    "message": "يرجى تعطيل 'التحقق من الوجه' من الإعدادات أو إصلاح الكاميرا."
+                }), 500
+
             # التحقق من State Machine
             if robot_state.current != RobotState.VERIFIED:
                  log_dose(box, 'auth_failed', 'failed', "رفض الصرف: لم يتم التحقق من الوجه")
